@@ -27,7 +27,7 @@ const RIPPLE_PRESETS = {
     rippleWidthNormal: 3.2,
     rippleWidthWhite: 1.8,
     warmthLimit: 0.35,
-    causticsIntensity: 0.012,
+    causticsIntensity: 0.06,
     bathymetricGlow: 0.32
   },
   cinematic: {
@@ -42,7 +42,7 @@ const RIPPLE_PRESETS = {
     rippleWidthNormal: 4.2,
     rippleWidthWhite: 2.2,
     warmthLimit: 0.50,
-    causticsIntensity: 0.008,
+    causticsIntensity: 0.08,
     bathymetricGlow: 0.16
   },
   impact: {
@@ -57,7 +57,7 @@ const RIPPLE_PRESETS = {
     rippleWidthNormal: 4.8,
     rippleWidthWhite: 2.6,
     warmthLimit: 0.65,
-    causticsIntensity: 0.004,
+    causticsIntensity: 0.10,
     bathymetricGlow: 0.05
   },
   overdrive: {
@@ -72,7 +72,7 @@ const RIPPLE_PRESETS = {
     rippleWidthNormal: 5.5,
     rippleWidthWhite: 3.0,
     warmthLimit: 0.70,
-    causticsIntensity: 0.002,
+    causticsIntensity: 0.12,
     bathymetricGlow: 0.0
   }
 };

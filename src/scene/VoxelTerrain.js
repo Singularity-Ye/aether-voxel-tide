@@ -15,8 +15,8 @@ export class VoxelTerrain {
     this.noiseGen = new SimplexNoise2D();
 
     // Voxel sizing configurations
-    this.boxSize = 0.99; // geometry is nearly continuous; visible grid is shader-controlled
-    this.stepSize = 1.0;
+    this.boxSize = 1.22; // leaves a tight 0.03 unit gap to minimize black seams
+    this.stepSize = 1.25;
 
     // Persistent voxel properties mapping (used for CPU-side active cells reference)
     this.voxelProps = [];

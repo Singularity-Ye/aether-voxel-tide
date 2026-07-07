@@ -16,10 +16,10 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
             rippleType: 0.0
           }))
         },
-        uBaseColor1: { value: new THREE.Color(0x050e18) },
-        uBaseColor2: { value: new THREE.Color(0x0b2230) },
-        uCoolCore: { value: new THREE.Color(0x38cfe3) },
-        uCoolEdge: { value: new THREE.Color(0x74efff) },
+        uBaseColor1: { value: new THREE.Color(0x040914) },
+        uBaseColor2: { value: new THREE.Color(0x0c253c) },
+        uCoolCore: { value: new THREE.Color(0x005eff) },
+        uCoolEdge: { value: new THREE.Color(0x00d9ff) },
         uRippleColor: { value: new THREE.Color(0x00f5ff) },
         uGlowIntensity: { value: 1.0 },
         uGridSize: { value: 120.0 },
@@ -148,10 +148,10 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
             vDistance = centerDist;
             vInstancePos = aInstancePos;
 
-            // 1A. Static Continent & Seabed Height
-            float maskVal = snoise(terrainPos * 0.015) + snoise(terrainPos * 0.03) * 0.35;
-            float continentWeight = smoothstep(-0.25, 0.15, maskVal);
-            vContinentWeight = continentWeight;
+             // 1A. Continuous island-crevice patterns using low-frequency double simplex noise
+             float maskVal = snoise(terrainPos * 0.015) + snoise(terrainPos * 0.03) * 0.35;
+             float continentWeight = smoothstep(-0.25, 0.15, maskVal);
+             vContinentWeight = continentWeight;
 
             float detail = snoise(terrainPos * 0.08) * 0.18;
             float edgeFalloff = 1.0 - smoothstep(uGridSize * 0.42, uGridSize * 0.58, centerDist);
@@ -159,7 +159,8 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
             
             float baseElevation = uSeabedBaseHeight;
             #ifdef ENABLE_STATIC_HEIGHT
-              baseElevation += continentWeight * uContinentLiftScale + detail;
+              // Boost static island height by 1.35x for more pronounced mountains and valleys
+              baseElevation += continentWeight * uContinentLiftScale * 1.35 + detail * continentWeight;
             #endif
 
             // 1B. Idle Ambient Wave Breathing
@@ -168,9 +169,9 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
               vec2 movingPos = terrainPos * 0.04 + vec2(uTime * 0.08, uTime * 0.04);
               float baseNoise = (snoise(movingPos) + 1.0) * 0.5;
               float wave = sin(terrainPos.x * 0.12 + terrainPos.y * 0.08 - uTime * 0.45) * 0.5 + 0.5;
-              idleElevation = mix(baseNoise, wave, 0.4) * 0.7 * globalFalloff;
-              baseElevation += clamp(idleElevation * 0.45, -0.25, 0.45);
-            #endif
+               idleElevation = mix(baseNoise, wave, 0.4) * 0.7 * globalFalloff;
+               baseElevation += clamp(idleElevation * 0.75, -0.40, 0.40);
+             #endif
 
             // 1C. Audio Band Height Displacement
             float audioElevation = 0.0;
@@ -203,8 +204,9 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
               // High frequency treble sparkles (dynamic branch removed)
               audioElevation += uEnergy * 2.5 * step(0.985, rnd);
               
-              float audioRegionalMotion = audioElevation * mix(0.25, 1.0, continentWeight);
-              baseElevation += audioRegionalMotion;
+                            // Boost audio-responsive floating amplitude by 2.8x for a highly dynamic, flexing music-reactive landscape
+               float audioRegionalMotion = audioElevation * mix(0.25, 1.0, continentWeight) * 2.8;
+               baseElevation += audioRegionalMotion;
             #endif
 
             // Apply static scale & mask
@@ -236,10 +238,17 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
                   float waveRadius = timeSince * curSpeed;
                   float deltaDist = dVal - waveRadius;
                   
-                  float rippleWave = exp(-deltaDist * deltaDist / curWidth);
-                  float fade = exp(-waveRadius / curFadeDist);
+                  // 1. Sinusoidal carrier with Gaussian envelope to create realistic concentric wave packet
+                  float geomEnvelope = exp(-deltaDist * deltaDist / (curWidth * 1.5));
+                  float colorEnvelope = exp(-deltaDist * deltaDist / curWidth);
                   
-                  float rGlow = rippleWave * fade * uRipples[i].strength;
+                  float waveCarrier = cos(deltaDist * 1.5);
+                  float colorCarrier = pow(max(0.0, cos(deltaDist * 1.5)), 2.0); // glow only on wave crests
+                  
+                  float rippleWaveGeom = waveCarrier * geomEnvelope;
+                  float rippleWaveColor = colorCarrier * colorEnvelope;
+                  
+                  float fade = exp(-waveRadius / curFadeDist);
                   
                   float baseLift = uRippleNormalLift;
                   if (uRipples[i].rippleType > 0.5) {
@@ -249,17 +258,15 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
                   }
                   
                   float audioTexture = clamp(audioElevation * 0.18, -0.15, 0.25);
-                  float rLift = rippleWave * fade * baseLift * (1.0 + audioTexture);
+                  float rLift = rippleWaveGeom * fade * baseLift * (1.0 + audioTexture);
                   
                   float maxLift = uRipples[i].rippleType > 0.5 ? uRippleImpactLift : (uRipples[i].strength > 6.0 ? uRippleStrongLift : uRippleNormalLift);
-                  rLift = min(rLift, maxLift);
+                  rLift = clamp(rLift, -maxLift * 0.6, maxLift); // allow wave troughs down to 60% depth
                   
                   float rippleScale = mix(uSeabedRippleLift, 1.0, continentWeight);
                   rippleElevation += rLift * rippleScale;
                   
-                  float rippleSharpness = mix(4.5, 3.0, clamp(uThemeMix, 0.0, 1.0));
-                  float colorWave = pow(rippleWave, rippleSharpness);
-                  float rColorGlow = colorWave * fade * uRipples[i].strength;
+                  float rColorGlow = rippleWaveColor * fade * uRipples[i].strength;
 
                   float glowScale = mix(uSeabedRippleGlow, 1.0, continentWeight);
                   if (uRipples[i].rippleType > 0.5) {
@@ -284,6 +291,7 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
             pos.y = -0.5 + yPos * (1.0 + finalElevation);
 
             vec4 worldPosition = modelMatrix * instanceMatrix * vec4(pos, 1.0);
+            vInstancePos = worldPosition.xz; // Continuous world coordinates for smooth caustics!
             vViewDir = cameraPosition - worldPosition.xyz;
             gl_Position = projectionMatrix * viewMatrix * worldPosition;
           #endif
@@ -297,7 +305,7 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
         #define ENABLE_AUDIO_HEIGHT
         #define ENABLE_RIPPLE_GEOMETRY
         #define ENABLE_RIPPLE_HIGHLIGHT
-        #define ENABLE_CAUSTICS
+        //#define ENABLE_CAUSTICS
 
         // SHADING_MODE:
         // 0: Mode A (Flat Unlit - pure topColor, no normal, no scene lights, no bloom)
@@ -400,21 +408,23 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
 
           // Bathymetric Glow: dynamic weight suppression (restricted to seabed/deep water)
           float localBathymetricGlow = bathyGlow * (1.0 - vContinentWeight * 0.75) * (1.0 - smoothstep(0.1, 0.85, normElevation));
-          vec3 seabedColor = mix(cBase1 * 1.1, vec3(0.01, 0.42, 0.52), localBathymetricGlow);
+          // seabedColor changed to a rich glowing deep blue
+          vec3 seabedColor = mix(cBase1 * 1.1, vec3(0.005, 0.22, 0.38), localBathymetricGlow);
 
-          // 3-way color gradient for landmass: deepTeal -> oceanCyan -> seafoam
-          vec3 deepTeal = vec3(0.01, 0.12, 0.18);
-          vec3 oceanCyan = vec3(0.03, 0.32, 0.42);
-          vec3 seafoam = vec3(0.08, 0.55, 0.48);
+          // 3-way color gradient for landmass: deepTeal -> oceanCyan -> seafoam (rich sea-blue gradient)
+          vec3 deepTeal = vec3(0.005, 0.08, 0.22);   // Deep sea-blue
+          vec3 oceanCyan = vec3(0.01, 0.28, 0.55);  // Vibrant ocean-blue
+          vec3 seafoam = vec3(0.0, 0.52, 0.88);    // Radiant sea-blue
           vec3 highland = mix(
             mix(deepTeal, oceanCyan, clamp(normElevation * 2.0, 0.0, 1.0)),
             mix(oceanCyan, seafoam, clamp((normElevation - 0.5) * 2.0, 0.0, 1.0)),
             step(0.5, normElevation)
           );
 
-          vec3 targetTopColor = mix(seabedColor, mix(cBase1 * 1.5, highland, mix(0.40, 1.0, themeMix)), vContinentWeight);
+          // Use highland gradient directly on landmass for pure, vibrant, saturated sea-blue colors
+          vec3 targetTopColor = mix(seabedColor, highland, vContinentWeight);
 
-          // Finer, softer water caustics with smaller pattern scale
+          // Finer, softer water caustics with smaller pattern scale (single clean layer for clarity)
           vec2 pCaust = caustPos * 0.45; 
           vec2 uvCaust = pCaust;
           uvCaust.x += sin(pCaust.y + uTime * 1.2) * 0.25;
@@ -431,10 +441,8 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
 
           if (isTop) {
             // --- TOP FACE ---
-            float centerDist = clamp(length(vUv - vec2(0.5)) * 2.0, 0.0, 1.0);
-            float centerFactor = smoothstep(0.0, 0.7, centerDist);
-            float centerMask = mix(topCenterBright, 1.0, centerFactor);
-            finalColor = targetTopColor * centerMask;
+            // Keep the top face solid and bright, matching the original video
+            finalColor = targetTopColor;
 
             // Glowing top face borders (fake outlines) - using anti-aliased fwidth
             float edgeX = max(1.0 - smoothstep(0.0, fwidth(vUv.x) * 1.5, vUv.x), 1.0 - smoothstep(0.0, fwidth(vUv.x) * 1.5, 1.0 - vUv.x));
@@ -470,16 +478,16 @@ export class VoxelShaderMaterial extends THREE.ShaderMaterial {
               }
             }
 
-            // Apply ripples to top face (ripple intensities are pre-scaled by SEABED_RIPPLE_GLOW)
-            #ifdef ENABLE_RIPPLE_HIGHLIGHT
-              finalColor += uRippleColor * vRippleAnim.x * 0.45;
-              finalColor += vec3(1.0, 1.0, 1.0) * vRippleAnim.y * 1.0;
-            #endif
+             // Apply ripples to top face (boosted cyan ripple multiplier to 0.85)
+             #ifdef ENABLE_RIPPLE_HIGHLIGHT
+               finalColor += uRippleColor * vRippleAnim.x * 0.85;
+               finalColor += vec3(1.0, 1.0, 1.0) * vRippleAnim.y * 1.2;
+             #endif
 
-            // Apply water caustics overlay
-            #ifdef ENABLE_CAUSTICS
-              finalColor += vec3(0.2, 0.94, 1.0) * web * uCausticsIntensity * caustMute;
-            #endif
+             // Apply water caustics overlay
+             #ifdef ENABLE_CAUSTICS
+               finalColor += vec3(0.2, 0.94, 1.0) * web * uCausticsIntensity * caustMute;
+             #endif
           } else {
             // --- SIDE FACES ---
             float sideVertical = pow(vRelativeY, 1.25);

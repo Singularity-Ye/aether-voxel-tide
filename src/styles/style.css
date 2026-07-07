@@ -906,25 +906,21 @@ input:checked + .slider:before {
 }
 
 .hud-container.hud-minimized .player-card {
-  opacity: 0.12;
+  opacity: 0;
   transform: scale(0.98);
+  pointer-events: none;
 }
 
 .hud-container.hud-minimized .metrics-panel {
-  opacity: 0.12;
+  opacity: 0;
   transform: scale(0.98);
+  pointer-events: none;
 }
 
 .hud-container.hud-minimized .control-console {
-  opacity: 0.12;
+  opacity: 0;
   transform: scale(0.98);
-}
-
-.hud-container.hud-minimized .player-card:hover,
-.hud-container.hud-minimized .metrics-panel:hover,
-.hud-container.hud-minimized .control-console:hover {
-  opacity: 1.0;
-  transform: scale(1.0);
+  pointer-events: none;
 }
 
 /* Keyboard / ESC prompt overlay */
