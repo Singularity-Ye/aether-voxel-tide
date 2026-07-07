@@ -1,88 +1,90 @@
 # Aether Voxel Tide (音律体素海)
 
-A stunning, high-performance deep-sea audio-reactive voxel ocean visualizer built with **Three.js (WebGL)**, **GLSL (Custom ShaderMaterial)**, and the **Web Audio API**.
+一个基于 **Three.js (WebGL)**、**GLSL (自定义着色器材质)** 和 **Web Audio API** 构建的、具备高性能和未来科技感的网页端实时三维音乐音频地貌可视化系统（Visualizer）。
 
 ---
 
-## 🌟 Visual Preview
+## 🌟 视觉效果展示
 
-* **Cyberpunk Neon Sea**: Saturated deep electric-blue voxels representing a digital ocean.
-* **Concentric Sonar Ripples**: High-fidelity soundwaves propagating outward as concentric wave packets with physical crests and troughs.
-* **Biomimetic Particle Field**: Floating bioluminescent bubbles and plankton responding dynamically to higher treble ranges.
+### 最终调试完成：深邃霓虹海蓝 + 高反差声纳白波
+我们成功移除了繁杂突兀的写实水波焦散线，还原了干净、纯粹的赛博自发光网格。深邃的海蓝色体素块与扫过海面的明亮白色声纳波纹形成了极具交互美感的视觉反差：
+![最终海蓝效果](./docs/aether-voxel-tide-final.png)
+
+### B站原版效果对照
+本项目深度复刻了B站经典音乐可视化大屏效果，通过纯色发光顶面与向外扩散的同心圆涟漪波纹，赋予了体素方块液态的生命力：
+![B站原版对照](./docs/aether-voxel-tide-ref.png)
 
 ---
 
-## 🚀 Key Features
+## 🚀 核心特性
 
-* **GPU Hardware Accelerated Rendering**: Leverages `THREE.InstancedMesh` to render 20,000+ interactive columns in a single draw call. All position displacements (wave heights and ripples) are computed in the GPU vertex shader for flawless 60 FPS performance.
-* **Concentric Wave Packet Sonar**: Ripple physics computed in GLSL using a sinusoidal carrier wave combined with a Gaussian decay envelope:
+* **GPU 硬件加速渲染**：利用 `THREE.InstancedMesh` 一次性向 GPU 提交数万个立方体网格（仅需 1 次 Draw Call）。将所有的顶点高度偏置（噪波大陆与声纳涟漪计算）完全卸载至 GPU 顶点着色器（Vertex Shader）执行，保证在普通显卡或核显上也能稳定跑满 60 FPS。
+* **物理波包声纳（Wave Packet）**：涟漪效果非普通的单层圆环，而是基于物理规律的一阶余弦载波与高斯衰减包络线复合算法：
   $$z_{ripple} = \cos(\Delta d \cdot 1.5) \cdot e^{-\frac{\Delta d^2}{w}}$$
-* **Web Audio Frequency Extraction**: Dynamically binds 8 separate frequency sub-bands (from heavy sub-bass to air frequencies) to physical terrain elevations, local color transformations, and particles.
-* **Dual Live Audio Input modes**: Supports uploading local `.mp3` / `.wav` audio tracks or capturing system audio in real-time via the browser's live media sharing context (Live Capture).
+  这使得声纳涟漪在扩散时，方块会产生带有连续波峰与波谷的物理震荡，动态自然逼真。
+* **多频段音频信号解耦**：利用 Web Audio 对捕获的音频进行实时傅里叶变换，解耦出 Sub-Bass（超重低音，控制地貌中心抬升）到 Treble/Air（高音，控制星星点点的游离粒子闪烁）等共 8 个子频段，直接映射至地形起伏和粒子闪烁强弱。
+* **双模式实时音频捕获**：既支持上传本地 `.mp3` / `.wav` 音轨进行离线解析，也支持利用浏览器底层的 Live Capture 模式实时捕获系统或麦克风的声浪输入。
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ 技术栈
 
-* **Core**: Javascript (ES6+), HTML5, CSS3
-* **Rendering**: Three.js (WebGL), custom GLSL Shaders (Vertex & Fragment)
-* **Audio**: HTML5 Web Audio API (`AudioContext`, `AnalyserNode`)
-* **Build System**: Vite, PostCSS
+* **核心框架**：HTML5, CSS3, Javascript (ES6+)
+* **3D 引擎**：Three.js (WebGL)
+* **着色器语言**：GLSL
+* **音频处理**：HTML5 Web Audio API (`AudioContext`, `AnalyserNode`)
+* **构建打包**：Vite
 
 ---
 
-## 📦 Getting Started
+## 📦 快速启动
 
-### Prerequisites
+### 前提条件
 
-Make sure you have [Node.js](https://nodejs.org/) installed.
+请确保你的本地环境已安装了 [Node.js](https://nodejs.org/)。
 
-### Installation
+### 安装与运行
 
-1. Clone the repository:
+1. 克隆本项目：
    ```bash
    git clone https://github.com/Singularity-Ye/aether-voxel-tide.git
    cd aether-voxel-tide
    ```
 
-2. Install dependencies:
+2. 安装依赖：
    ```bash
    npm install
    ```
 
-### Running Locally
+3. 启动开发服务器：
+   ```bash
+   npm run dev
+   ```
+   在浏览器中访问 [http://localhost:5173/](http://localhost:5173/) 即可体验。
 
-To start the local development server:
-```bash
-npm run dev
-```
-Open [http://localhost:5173/](http://localhost:5173/) in your browser.
-
-### Building for Production
-
-To bundle the application for production:
-```bash
-npm run build
-```
-The output files will be located in the `dist/` directory.
+4. 打包生产版本：
+   ```bash
+   npm run build
+   ```
+   打包产物将输出在根目录下的 `dist/` 目录中。
 
 ---
 
-## ⚙️ Shading & Shader Configuration
+## ⚙️ 着色器宏定义配置
 
-The visualizer's voxel materials are written using a custom GLSL shader inside `VoxelShaderMaterial.js`. You can toggle features by commenting/uncommenting the macros at the top of the fragment shader:
+地形的渲染特征由片元着色器头部的宏定义直接控制。你可以在 [VoxelShaderMaterial.js](src/scene/VoxelShaderMaterial.js) 的片元着色器段通过注释宏来自由切换画面风格：
 
 ```glsl
-#define ENABLE_STATIC_HEIGHT    // Enables noise-based islands
-#define ENABLE_IDLE_WAVE        // Gentle ambient sea breathing
-#define ENABLE_AUDIO_HEIGHT     // Music-responsive height scaling
-#define ENABLE_RIPPLE_GEOMETRY  // Sonar wave displacement
-#define ENABLE_RIPPLE_HIGHLIGHT // Concentric glowing wave rings
-//#define ENABLE_CAUSTICS       // Organic water caustics (disabled for clean digital look)
+#define ENABLE_STATIC_HEIGHT    // 开启静态双频 Simplex 噪波岛屿
+#define ENABLE_IDLE_WAVE        // 开启海床的微弱呼吸起伏波浪
+#define ENABLE_AUDIO_HEIGHT     // 开启音频驱动的体素列高度跳跃
+#define ENABLE_RIPPLE_GEOMETRY  // 开启声纳波形几何起伏
+#define ENABLE_RIPPLE_HIGHLIGHT // 开启同心圆波包高亮发光
+//#define ENABLE_CAUSTICS       // 开启有机折射焦散（已注释，确保纯净的赛博网格质感）
 ```
 
 ---
 
-## 📄 License
+## 📄 开源协议
 
-This project is open-source under the MIT License.
+本项目基于 MIT License 协议开源。
